@@ -1,0 +1,162 @@
+- name: "Basic ansible setup"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Remove obsolete kalakris cmake ppa"
+      apt_repository:
+        repo: "ppa:kalakris/cmake"
+        state: absent
+
+    - name: "Add aptitude needed by ansible"
+      apt: name=aptitude
+
+    - name: "Install https support for apt"
+      apt: name=apt-transport-https
+
+    - name: "Update python ssl support"
+      pip: name="urllib3 pyopenssl ndg-httpsclient pyasn1"
+
+    - name: "Update ca-certificates for https support"
+      apt: name=ca-certificates
+
+# - name: "python3 packages"
+#   hosts: gpu
+#   become: yes
+#   tasks:
+#     - name: "Set up scipy for python3"
+#       pip: executable=pip3 name="numpy scipy"
+
+- name: "Caffe dependencies"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Add google proto/log/flags support, lmdb, hdf5 support."
+      apt: name={{item}}
+      with_items:
+        - libprotobuf-dev
+        - libleveldb-dev
+        - libsnappy-dev
+        - libopencv-dev
+        - libhdf5-serial-dev
+        - protobuf-compiler
+        - libgflags-dev
+        - libgoogle-glog-dev
+        - liblmdb-dev
+    - name: "Add boost library."
+      apt: name=libboost-all-dev install_recommends=no
+
+- name: "Intel MKL library"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Add intel apt-key"
+      apt_key:
+        url: "https://apt.repos.intel.com/intel-gpg-keys/\
+              GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB"
+
+    - name: "Add intel mkl apt repository"
+      apt_repository:
+        repo: "deb https://apt.repos.intel.com/mkl all main"
+        filename: "intel-mkl"
+
+    - name: "Update apt-get cache"
+      apt: update_cache=yes cache_valid_time=3600
+
+    - name: "Upgrade apt-cache cache and distro"
+      apt: upgrade=dist cache_valid_time=3600
+
+    - name: "Install intel MKL libraries"
+      apt: name="intel-mkl-64bit-2017.3-056"
+
+
+- name: "Nvidia CUDA library"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Check if CUDA is present"
+      command: dpkg-query -W cuda
+      register: cuda_check_deb
+      failed_when: cuda_check_deb.rc > 1
+      changed_when: cuda_check_deb.rc == 1
+
+    - name: "Download CUDA repo deb"
+      apt:
+        deb: "https://developer.download.nvidia.com/compute/cuda/repos/\
+              ubuntu1404/x86_64/cuda-repo-ubuntu1404_8.0.61-1_amd64.deb"
+      when: cuda_check_deb.rc == 1
+
+    - name: "Install CUDA drivers"
+      apt: update_cache=yes name=cuda
+      when: cuda_check_deb.rc == 1
+
+- name: "Nvidia CUDNN distribution"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Check if CUDNN is present"
+      command: dpkg-query -W libcudnn6-dev libcudnn6
+      register: cudnn_check_deb
+      failed_when: cudnn_check_deb.rc > 1
+      changed_when: cudnn_check_deb.rc == 1
+
+    - name: "Copy CUDNN deb files"
+      copy:
+        dest: /root/cudnn/
+        src: files/cudnn/
+      when: cudnn_check_deb.rc == 1
+
+    - name: "Install CUDNN runtime deb file"
+      apt:
+        deb: "/root/cudnn/libcudnn6_6.0.21-1+cuda8.0_amd64.deb"
+      when: cudnn_check_deb.rc == 1
+
+    - name: "Install CUDNN dev deb file"
+      apt:
+        deb: "/root/cudnn/libcudnn6-dev_6.0.21-1+cuda8.0_amd64.deb"
+      when: cudnn_check_deb.rc == 1
+
+- name: "Shared Anaconda 3 distribution"
+  hosts: gpu
+  become: true
+  vars:
+    anaconda_version: 4.3.0
+    anaconda_parent_dir: /opt/
+    anaconda3_path: "/opt/Anaconda3-{{ anaconda_version }}-Linux-x86_64"
+  pre_tasks:
+    - name: Check if Anaconda 3 is already installed
+      stat:
+        path: "{{ anaconda3_path }}"
+      register: anaconda3_installed
+      tags:
+        - anaconda-install
+  roles:
+    - role: andrewrothstein.anaconda
+      anaconda_python_ver : '3'
+      anaconda_ver: "{{ anaconda_version }}"
+      when: not anaconda3_installed.stat.exists
+      tags: anaconda-install
+  tasks: 
+    - name: "link anaconda..."
+      become: yes
+      become_user: root
+      file:
+        dest: /opt/anaconda
+        src: "{{ anaconda3_path }}"
+        state: link
+      tags:
+        - anaconda-install
+    - name: "Downgrade to python 3.5"
+      become: yes
+      shell: "/opt/anaconda/bin/conda install -y -q python=3.5.2"
+      register: conda_env_update
+      changed_when: '"COMPLETE" in conda_env_update.stdout'
+
+
+- name: "Set up common login environement variables"
+  hosts: gpu
+  become: true
+  tasks:
+    - name: "Copy profile.local"
+      copy:
+        dest: /etc/profile.local
+        src: files/profile.local
