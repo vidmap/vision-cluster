@@ -7,8 +7,10 @@
         then
           ln -s \
             /data/vision/torralba/small-projects/vision-cluster/largefiles
-            largefiles
+            largefiles && echo "Added largefiles link"
         fi
+      register: largefiles_link
+      changed_when: '"Added" in largefiles_link.stdout'
 
 - name: "Basic ansible setup"
   hosts: gpu
