@@ -117,7 +117,7 @@
     - name: "Copy CUDNN deb files"
       copy:
         dest: /root/cudnn/
-        src: files/cudnn/
+        src: largefiles/cudnn/trusty/
       when: cudnn_check_deb.rc == 1
 
     - name: "Install CUDNN runtime deb file"
@@ -191,5 +191,53 @@
       shell: "/opt/anaconda/bin/conda install -y -q python=3.5.2"
       register: conda_env_update
       changed_when: '"COMPLETE" in conda_env_update.stdout'
+
+- name: "Build and install caffe-1.0 from source"
+  hosts: gpu
+  become: true
+  tasks:
+    - name: "Check if caffe is present"
+      shell: |
+        test -L /usr/local/caffe/bin/caffe
+        test -f /usr/local/caffe/bin/caffe.bin
+      register: caffe_check
+      failed_when: caffe_check.rc > 1
+      changed_when: caffe_check.rc == 1
+
+    - name: "Create temp build directory"
+      file: path=/tmp/ansible-caffe-build state=directory
+      when: caffe_check.rc == 1
+
+    - name: "Download caffe-1.0 sources"
+      unarchive:
+        src: "https://github.com/BVLC/caffe/archive/1.0.tar.gz"
+        dest: /tmp/ansible-caffe-build
+        remote_src: yes
+      when: caffe_check.rc == 1
+
+    - name: "Copy our Caffe Makefile.config"
+      copy:
+        dest: /tmp/ansible-caffe-build/caffe-1.0/Makefile.config
+        src: files/caffe/Makefile.config
+      when: caffe_check.rc == 1
+
+    - name: "Build and install caffe"
+      shell: |
+        make clean
+        make all distribute -j12
+        ls distribute/bin | \
+          sed -n 's/\.bin$//p' | \
+          xargs -n1 -I{} ln -s {}.bin distribute/bin/{}
+        mkdir -p /usr/local/caffe
+        mv distribute/* /usr/local/caffe
+      args:
+        chdir: /tmp/ansible-caffe-build/caffe-1.0
+      register: caffe_build
+      failed_when: caffe_build.rc > 0
+      when: caffe_check.rc == 1
+
+    - name: "Remove temp build directory"
+      file: path=/tmp/ansible-caffe-build state=absent
+      when: caffe_check.rc == 1
 
 
