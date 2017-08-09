@@ -201,9 +201,9 @@
         state: link
       tags:
         - anaconda-install
-    - name: "Downgrade to python 3.5"
+    - name: "Set up python 3.6"
       become: yes
-      shell: "/opt/anaconda/bin/conda install -y -q python=3.5.2"
+      shell: "/opt/anaconda/bin/conda install -y -q python=3.6.2"
       register: conda_env_update
       changed_when: '"COMPLETE" in conda_env_update.stdout'
 
