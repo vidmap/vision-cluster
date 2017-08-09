@@ -1,3 +1,15 @@
+- name: "Set up local files"
+  hosts: localhost
+  tasks:
+    - name: "Create largefiles link if needed"
+      shell: |
+        if [ ! -e largefiles ]
+        then
+          ln -s \
+            /data/vision/torralba/small-projects/vision-cluster/largefiles
+            largefiles
+        fi
+
 - name: "Basic ansible setup"
   hosts: gpu
   become: yes
@@ -16,6 +28,7 @@
     - name: "Install python packaging and build-essential support"
       apt: name={{item}}
       with_items:
+        - libssl-dev
         - build-essential
         - python-pip
         - python-dev
