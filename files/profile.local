@@ -4,6 +4,10 @@ export PATH=${MKL_HOME}/bin:$PATH
 export CUDA_HOME=/usr/local/cuda
 export PATH=${CUDA_HOME}/bin:$PATH
 
+# Caffe is built locally to the machine
+export CAFFE_HOME=/opt/caffe
+export PATH=$PATH:${CAFFE_HOME}/bin
+
 # Anaconda last in path to provide conda without masking system python
 export ANACONDA_HOME=/opt/anaconda
 export PATH=$PATH:${ANACONDA_HOME}/bin
@@ -11,3 +15,4 @@ export PATH=$PATH:${ANACONDA_HOME}/bin
 # Matlab is at the end to prevent masking system "ldd"
 export MATLAB_ROOT=/afs/csail.mit.edu/system/common/matlab/latest
 export PATH=$PATH:${MATLAB_ROOT}/bin
+

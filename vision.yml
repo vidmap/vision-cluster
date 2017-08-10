@@ -135,7 +135,8 @@
   become: yes
   tasks:
     - name: "Check if CUDNN is present"
-      command: dpkg-query -W libcudnn6-dev libcudnn6
+      command: dpkg-query -W libcudnn5-dev libcudnn5 \
+        libcudnn6-dev libcudnn6 libcudnn7-dev libcudnn7
       register: cudnn_check_deb
       failed_when: cudnn_check_deb.rc > 1
       changed_when: cudnn_check_deb.rc == 1
@@ -146,24 +147,16 @@
         src: largefiles/cudnn/trusty/
       when: cudnn_check_deb.rc == 1
 
-    - name: "Install CUDNN runtime deb file"
-      apt:
-        deb: "/root/cudnn/libcudnn6_6.0.21-1+cuda8.0_amd64.deb"
+    - name: "Install CUDNN runtime deb files"
+      apt: deb={{item}}
+      with_items:
+        - "/root/cudnn/libcudnn5_5.1.10-1+cuda8.0_amd64.deb"
+        - "/root/cudnn/libcudnn5-dev_5.1.10-1+cuda8.0_amd64.deb"
+        - "/root/cudnn/libcudnn6_6.0.21-1+cuda8.0_amd64.deb"
+        - "/root/cudnn/libcudnn6-dev_6.0.21-1+cuda8.0_amd64.deb"
+        - "/root/cudnn/libcudnn7_7.0.1.13-1+cuda8.0_amd64.deb"
+        - "/root/cudnn/libcudnn7-dev_7.0.1.13-1+cuda8.0_amd64.deb"
       when: cudnn_check_deb.rc == 1
-
-    - name: "Install CUDNN dev deb file"
-      apt:
-        deb: "/root/cudnn/libcudnn6-dev_6.0.21-1+cuda8.0_amd64.deb"
-      when: cudnn_check_deb.rc == 1
-
-- name: "Set up common login environement variables"
-  hosts: gpu
-  become: true
-  tasks:
-    - name: "Copy profile.local"
-      copy:
-        dest: /etc/profile.local
-        src: files/profile.local
 
 - name: "python3 packages"
   hosts: gpu
@@ -224,8 +217,8 @@
   tasks:
     - name: "Check if caffe is present"
       shell: |
-        test -L /usr/local/caffe/bin/caffe
-        test -f /usr/local/caffe/bin/caffe.bin
+        test -L /opt/caffe/bin/caffe
+        test -f /opt/caffe/bin/caffe.bin
       register: caffe_check
       failed_when: caffe_check.rc > 1
       changed_when: caffe_check.rc == 1
@@ -241,21 +234,21 @@
         remote_src: yes
       when: caffe_check.rc == 1
 
-    - name: "Copy our Caffe Makefile.config"
+    - name: "Copy our caffe Makefile.config"
       copy:
         dest: /tmp/ansible-caffe-build/caffe-1.0/Makefile.config
         src: files/caffe/Makefile.config
       when: caffe_check.rc == 1
 
-    - name: "Build and install caffe"
+    - name: "Build and install caffe-1.0"
       shell: |
         make clean
         make all distribute -j12
         ls distribute/bin | \
           sed -n 's/\.bin$//p' | \
           xargs -n1 -I{} ln -s {}.bin distribute/bin/{}
-        mkdir -p /usr/local/caffe
-        mv distribute/* /usr/local/caffe
+        mkdir -p /opt/caffe
+        mv distribute/* /opt/caffe
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
       register: caffe_build
@@ -266,4 +259,12 @@
       file: path=/tmp/ansible-caffe-build state=absent
       when: caffe_check.rc == 1
 
+- name: "Set up common login environement variables"
+  hosts: gpu
+  become: true
+  tasks:
+    - name: "Copy profile.local"
+      copy:
+        dest: /etc/profile.local
+        src: files/profile.local
 
