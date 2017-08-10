@@ -98,6 +98,16 @@
     - name: "Install intel MKL libraries"
       apt: name="intel-mkl-64bit-2017.3-056"
 
+    - name: "Add MKL library to ld.so.d path"
+      copy:
+        dest: /etc/ld.so.cond.d/mkl.conf
+        src: files/mkl/mkl.conf
+      notify:
+        - run ldconfig
+  handlers:
+    - name: run ldconfig
+      command: ldconfig
+
 
 - name: "Nvidia CUDA library"
   hosts: gpu

@@ -1,15 +1,12 @@
 export MKL_HOME=/opt/intel/mkl
 export PATH=${MKL_HOME}/bin:$PATH
-export LD_LIBRARY_PATH=${MKL_HOME}/lib/intel64:$LD_LIBRARY_PATH
 
 export CUDA_HOME=/usr/local/cuda
 export PATH=${CUDA_HOME}/bin:$PATH
-export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 
 # Anaconda last in path to provide conda without masking system python
 export ANACONDA_HOME=/opt/anaconda
 export PATH=$PATH:${ANACONDA_HOME}/bin
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${ANACONDA_HOME}/lib
 
 # Matlab is at the end to prevent masking system "ldd"
 export MATLAB_ROOT=/afs/csail.mit.edu/system/common/matlab/latest
