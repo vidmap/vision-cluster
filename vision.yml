@@ -211,6 +211,30 @@
       register: conda_env_update
       changed_when: '"COMPLETE" in conda_env_update.stdout'
 
+- name: "Install tensorflow and pytorch in shared anaconda"
+  hosts: gpu
+  become: true
+  tasks:
+    - name: "Install pytorch"
+      conda:
+        name: pytorch
+        version: 0.2.0
+        channels: soumith
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install torchvision"
+      conda:
+        name: pytorch
+        version: 0.1.9
+        channels: soumith
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install tensorflow"
+      conda:
+        name: tensorflow-gpu
+        version: 1.2.1
+        executable: /opt/anaconda/bin/conda
+
 - name: "Build and install caffe-1.0 from source"
   hosts: gpu
   become: true
