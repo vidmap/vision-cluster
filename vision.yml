@@ -100,10 +100,11 @@
 
     - name: "Add MKL library to ld.so.d path"
       copy:
-        dest: /etc/ld.so.cond.d/mkl.conf
+        dest: /etc/ld.so.conf.d/mkl.conf
         src: files/mkl/mkl.conf
       notify:
         - run ldconfig
+
   handlers:
     - name: run ldconfig
       command: ldconfig
