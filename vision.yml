@@ -193,19 +193,19 @@
 
     - name: "Copy CUDNN deb files"
       copy:
-        dest: /root/cudnn/
+        dest: /tmp/ansible-cudnn/
         src: largefiles/cudnn/trusty/
       when: cudnn_check_deb.rc == 1
 
     - name: "Install CUDNN runtime deb files"
       apt: deb={{item}}
       with_items:
-        - "/root/cudnn/libcudnn5_5.1.10-1+cuda8.0_amd64.deb"
-        - "/root/cudnn/libcudnn5-dev_5.1.10-1+cuda8.0_amd64.deb"
-        - "/root/cudnn/libcudnn6_6.0.21-1+cuda8.0_amd64.deb"
-        - "/root/cudnn/libcudnn6-dev_6.0.21-1+cuda8.0_amd64.deb"
-        - "/root/cudnn/libcudnn7_7.0.1.13-1+cuda8.0_amd64.deb"
-        - "/root/cudnn/libcudnn7-dev_7.0.1.13-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn5_5.1.10-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn5-dev_5.1.10-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn6_6.0.21-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn6-dev_6.0.21-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn7_7.0.1.13-1+cuda8.0_amd64.deb"
+        - "/tmp/ansible-cudnn/libcudnn7-dev_7.0.1.13-1+cuda8.0_amd64.deb"
       when: cudnn_check_deb.rc == 1
 
 - name: "python3 packages"
