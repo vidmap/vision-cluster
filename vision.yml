@@ -1,54 +1,3 @@
-- name: "Build google protobuf 3.2 from source"
-  hosts: gpu
-  become: yes
-  tasks:
-    - name: "Check if protobuf is present"
-      command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
-        libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
-      register: protobuf_check
-      failed_when: protobuf_check.rc > 1
-      changed_when: protobuf_check.rc == 1
-
-    - name: "Create temp build directory"
-      file: path=/tmp/ansible-proto-build state=directory
-      when: protobuf_check.rc == 1
-
-    - name: "Download protobuf 3.2 sources"
-      unarchive:
-        src: "https://github.com/google/protobuf/releases/download/v3.2.0/protobuf-cpp-3.2.0.tar.gz"
-        dest: /tmp/ansible-proto-build
-        remote_src: yes
-      when: protobuf_check.rc == 1
-
-    - name: "Build and install protobuf-1.0"
-      shell: |
-        ./configure && make -j8 && \
-        cp -a src/.libs/lib*.a* src/.libs/lib*.so* \
-            /usr/lib/x86_64-linux-gnu/ && \
-        cp src/.libs/protoc /usr/bin/
-      args:
-        chdir: /tmp/ansible-proto-build/protobuf-3.2.0
-      register: protobuf_build
-      failed_when: protobuf_build.rc > 0
-      when: protobuf_check.rc == 1
-
-    - name: "Copy protobuf dummy deb files"
-      copy:
-        dest: /tmp/ansible-proto-build/
-        src: files/protobuf/
-      when: protobuf_check.rc == 1
-
-    - name: "Install protobuf runtime deb files"
-      apt: deb={{item}}
-      with_items:
-        - "/tmp/ansible-proto-build/libprotobuf12_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/libprotobuf-lite12_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/libprotoc12_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/libprotobuf-dev_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/libprotoc-dev_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/protobuf-compiler_3.2.0-0~dummy_amd64.deb"
-      when: protobuf_check.rc == 1
-
 - name: "Set up local files"
   hosts: localhost
   tasks:
@@ -124,6 +73,63 @@
         - liblmdb-dev
     - name: "Add boost library."
       apt: name=libboost-all-dev install_recommends=no
+
+# Different versions of google protobuf are not binary-compatible,
+# and different deep learning tools have different needs: while caffe
+# is ok with the old protobuf packaged with ubuntu, tensorflow and
+# andaconda want a very current protobuf.  So we upgrade to a recent
+# protobuf that is far ahead of ubuntu by building directly from
+# the google sources.
+- name: "Build google protobuf 3.2 from source"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Check if protobuf is present"
+      command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
+        libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
+      register: protobuf_check
+      failed_when: protobuf_check.rc > 1
+      changed_when: protobuf_check.rc == 1
+
+    - name: "Create temp build directory"
+      file: path=/tmp/ansible-proto-build state=directory
+      when: protobuf_check.rc == 1
+
+    - name: "Download protobuf 3.2 sources"
+      unarchive:
+        src: "https://github.com/google/protobuf/releases/download/v3.2.0/protobuf-cpp-3.2.0.tar.gz"
+        dest: /tmp/ansible-proto-build
+        remote_src: yes
+      when: protobuf_check.rc == 1
+
+    - name: "Build and install protobuf-1.0"
+      shell: |
+        ./configure && make -j8 && \
+        cp -a src/.libs/lib*.a* src/.libs/lib*.so* \
+            /usr/lib/x86_64-linux-gnu/ && \
+        cp src/.libs/protoc /usr/bin/
+      args:
+        chdir: /tmp/ansible-proto-build/protobuf-3.2.0
+      register: protobuf_build
+      failed_when: protobuf_build.rc > 0
+      when: protobuf_check.rc == 1
+
+    - name: "Copy protobuf dummy deb files"
+      copy:
+        dest: /tmp/ansible-proto-build/
+        src: files/protobuf/
+      when: protobuf_check.rc == 1
+
+    - name: "Install protobuf runtime deb files"
+      apt: deb={{item}}
+      with_items:
+        - "/tmp/ansible-proto-build/libprotobuf12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotobuf-lite12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotoc12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotobuf-dev_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotoc-dev_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/protobuf-compiler_3.2.0-0~dummy_amd64.deb"
+      when: protobuf_check.rc == 1
 
 - name: "Intel MKL library"
   hosts: gpu
@@ -261,7 +267,7 @@
       register: conda_env_update
       changed_when: '"COMPLETE" in conda_env_update.stdout'
 
-- name: "Install tensorflow and pytorch in shared anaconda"
+- name: "Install tensorflow, pytorch, theano in shared anaconda"
   hosts: gpu
   become: true
   tasks:
@@ -274,7 +280,7 @@
 
     - name: "Install torchvision"
       conda:
-        name: pytorch
+        name: torchvision
         version: 0.1.9
         channels: soumith
         executable: /opt/anaconda/bin/conda
@@ -283,6 +289,18 @@
       conda:
         name: tensorflow-gpu
         version: 1.2.1
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install theano"
+      conda:
+        name: theano
+        version: 0.9.0
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install keras"
+      conda:
+        name: keras
+        version: 2.0.5
         executable: /opt/anaconda/bin/conda
 
 - name: "Build and install caffe-1.0 from source"
