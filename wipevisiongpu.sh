@@ -1,0 +1,88 @@
+#!/bin/bash
+
+if [[ ! "$1" =~ [0-9]+ ]]
+then
+  echo "This script wipes a vision gpu machine to a clean TIG image."
+  echo "Prerequisites:"
+  echo "  (1) sudo access on the machine"
+  echo "  (2) the ipmi vision password for serial access"
+  echo "After running this script, you need to run initvisiongpu."
+  echo
+  echo "Usage: $0 server-number"
+  exit 1
+fi
+
+SERVERNUM=$(printf '%02d' $1)
+SERVERNAME=visiongpu${SERVERNUM}.csail.mit.edu
+BMCNAME=bmc-visiongpu${SERVERNUM}
+IPMIPASSFILE=${HOME}/.ipmitool/visionpw
+
+# STEP 0: prerequisites
+if [ ! -f "${IPMIPASSFILE}" ]
+then
+  echo "${IPMIPASSFILE} should contain the vision ipmi password."
+  echo "Get it from somebody who has it. Not wiping."
+  exit 1
+fi
+
+if [ $(stat -c %A "${IPMIPASSFILE}") != '-r--------' ]
+then
+  echo "${IPMIPASSFILE} should have 400 permissions."
+  echo "Run chmod 400 ${IPMIPASSFILE}."
+  exit 1
+fi
+
+# STEP 1: make sure nobody is using the machine.
+
+GPUSTATUS=$(ssh -x $SERVERNAME nvidia-smi)
+if [[ ! "${GPUSTATUS}" =~ "No running processes found" ]]
+then
+  echo "${GPUSTATUS}"
+  echo "${SERVERNAME} is busy. Not wiping."
+  exit 1
+fi
+
+LOGINSTATUS=$(ssh -x $SERVERNAME who)
+if [ ! -z "${LOGINSTATUS}" ]
+then
+  echo "${LOGINSTATUS}"
+  echo "${SERVERNAME} has users logged in. Not wiping."
+  exit 1
+fi
+
+PROCSTATUS=$(ssh -x $SERVERNAME ps -ef | egrep 'jupyter|matlab')
+if [ ! -z "${PROCSTATUS}" ]
+then
+  echo "${PROCSTATUS}"
+  echo "${SERVERNAME} has users running interactive apps. Not wiping."
+  exit 1
+fi
+
+# STEP 2: save away the krb5.keytab so we can restore it.
+KEYTABDIR=${HOME}/.keytabs/${SERVERNAME}
+if [ ! -f ${KEYTABDIR}/krb5.keytab ]
+then
+    echo "Sudo password needed for saving keytab from ${SERVERNAME}"
+    mkdir -p ${KEYTABDIR}
+    chmod 700 ${KEYTABDIR}
+    ssh -t -x $SERVERNAME sudo cp /etc/krb5.keytab ${KEYTABDIR}
+fi
+if [ ! -f ${KEYTABDIR}/krb5.keytab ]
+then
+    echo "Could not save keytab for ${SERVERNAME}. Not wiping."
+    exit 1
+fi
+
+# STEP 3: wipe the machine
+ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
+    -H ${BMCNAME} chassis bootdev pxe
+sleep 1
+ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
+    -H ${BMCNAME} chassis power cycle
+
+echo "Waiting for a minute before connecting."
+echo "Select remote (serial) installation and accept all defaults."
+sleep 60
+
+ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
+    -H ${BMCNAME} sol activate
