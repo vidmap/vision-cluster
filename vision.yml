@@ -1,3 +1,54 @@
+- name: "Build google protobuf 3.2 from source"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Check if protobuf is present"
+      command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
+        libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
+      register: protobuf_check
+      failed_when: protobuf_check.rc > 1
+      changed_when: protobuf_check.rc == 1
+
+    - name: "Create temp build directory"
+      file: path=/tmp/ansible-proto-build state=directory
+      when: protobuf_check.rc == 1
+
+    - name: "Download protobuf 3.2 sources"
+      unarchive:
+        src: "https://github.com/google/protobuf/releases/download/v3.2.0/protobuf-cpp-3.2.0.tar.gz"
+        dest: /tmp/ansible-proto-build
+        remote_src: yes
+      when: protobuf_check.rc == 1
+
+    - name: "Build and install protobuf-1.0"
+      shell: |
+        ./configure && make -j8 && \
+        cp -a src/.libs/lib*.a* src/.libs/lib*.so* \
+            /usr/lib/x86_64-linux-gnu/ && \
+        cp src/.libs/protoc /usr/bin/
+      args:
+        chdir: /tmp/ansible-proto-build/protobuf-3.2.0
+      register: protobuf_build
+      failed_when: protobuf_build.rc > 0
+      when: protobuf_check.rc == 1
+
+    - name: "Copy protobuf dummy deb files"
+      copy:
+        dest: /tmp/ansible-proto-build/
+        src: files/protobuf/
+      when: protobuf_check.rc == 1
+
+    - name: "Install protobuf runtime deb files"
+      apt: deb={{item}}
+      with_items:
+        - "/tmp/ansible-proto-build/libprotobuf12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotobuf-lite12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotoc12_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotobuf-dev_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/libprotoc-dev_3.2.0-0~dummy_amd64.deb"
+        - "/tmp/ansible-proto-build/protobuf-compiler_3.2.0-0~dummy_amd64.deb"
+      when: protobuf_check.rc == 1
+
 - name: "Set up local files"
   hosts: localhost
   tasks:
@@ -63,7 +114,6 @@
       with_items:
         - gfortran
         - libatlas-base-dev
-        - libprotobuf-dev
         - libleveldb-dev
         - libsnappy-dev
         - libopencv-dev
@@ -241,7 +291,7 @@
   tasks:
     - name: "Check if caffe is present"
       shell: |
-        test -L /opt/caffe/bin/caffe
+        test -L /opt/caffe/bin/caffe && \
         test -f /opt/caffe/bin/caffe.bin
       register: caffe_check
       failed_when: caffe_check.rc > 1
@@ -273,10 +323,12 @@
           xargs -n1 -I{} ln -s {}.bin distribute/bin/{}
         mkdir -p /opt/caffe
         mv distribute/* /opt/caffe
+        echo "caffe build complete"
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
       register: caffe_build
       failed_when: caffe_build.rc > 0
+      changed_when: '"caffe build complete" in caffe_build.stdout'
       when: caffe_check.rc == 1
 
     - name: "Remove temp build directory"
