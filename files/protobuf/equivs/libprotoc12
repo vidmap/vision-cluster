@@ -1,0 +1,10 @@
+Package: libprotoc12
+Section: libs
+Priority: optional
+Standards-Version: 3.9.2
+Version: 3.2.0-0~dummy
+Architecture: amd64
+Maintainer: David Bau
+Multi-Arch: same
+Homepage: https://github.com/google/protobuf/
+Description: protocol buffers C++ library
