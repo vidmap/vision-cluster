@@ -80,9 +80,9 @@ sleep 1
 ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
     -H ${BMCNAME} chassis power cycle
 
-echo "Waiting for a minute before connecting."
+echo "Waiting for a couple minutes before connecting."
 echo "Select remote (serial) installation and accept all defaults."
-sleep 60
+sleep 120
 
 ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
     -H ${BMCNAME} sol activate
