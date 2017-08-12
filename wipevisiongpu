@@ -6,7 +6,7 @@ then
   echo "Prerequisites:"
   echo "  (1) sudo access on the machine"
   echo "  (2) the ipmi vision password for serial access"
-  echo "After running this script, you need to run initvisiongpu."
+  echo "After running this script, you need to run installvisiongpu."
   echo
   echo "Usage: $0 server-number"
   exit 1
