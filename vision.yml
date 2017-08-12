@@ -329,6 +329,20 @@
         version: 2.0.5
         executable: /opt/anaconda/bin/conda
 
+    - name: "Install pygraphviz"
+      conda:
+        name: pygraphviz
+        version: 1.3.1
+        channels: bioconda
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install opencv3"
+      conda:
+        name: opencv3
+        version: 3.1.0
+        channels: menpo
+        executable: /opt/anaconda/bin/conda
+
 - name: "Build and install caffe-1.0 from source"
   hosts: gpu
   become: true
