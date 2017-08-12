@@ -35,10 +35,9 @@
         - python-pip
         - python-dev
         - libffi-dev
-        - python-cffi
 
     - name: "Update python ssl support"
-      pip: name="urllib3 pyopenssl ndg-httpsclient pyasn1"
+      pip: name="cffi urllib3 pyopenssl ndg-httpsclient pyasn1"
 
     - name: "Update ca-certificates for https support"
       apt: name=ca-certificates
