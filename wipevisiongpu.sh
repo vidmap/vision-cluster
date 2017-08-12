@@ -74,9 +74,12 @@ then
 fi
 
 # STEP 3: wipe the machine
+# Request pxe boot mode
 ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
     -H ${BMCNAME} chassis bootdev pxe
 sleep 1
+# Reboot the machine.
+# ssh -t -x $SERVERNAME sudo reboot
 ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
     -H ${BMCNAME} chassis power cycle
 
