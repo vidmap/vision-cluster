@@ -51,10 +51,7 @@
       apt_repository:
         repo: "ppa:ansible/ansible"
         state: present
-
-    - name: "Update cache"
-      apt: update_cache=yes cache_valid_time=3600
-      ignore_errors: yes
+        update_cache: yes
 
     - name: "Install ansible itself"
       apt: name=ansible
@@ -75,11 +72,14 @@
         name:
           - "glances[gpu,web]"
 
+    - name: "Update apt cache and do a full dist upgrade"
+      apt: update_cache=yes upgrade=dist cache_valid_time=3600
+
 - name: "Machine learning dependencies"
   hosts: gpu
   become: yes
   tasks:
-    - name: "Add google proto/log/flags support, lmdb, hdf5 support."
+    - name: "Add fortran opencv, gflags, lmdb, hdf5 support, etc."
       apt: name={{item}}
       with_items:
         - gfortran
@@ -88,7 +88,6 @@
         - libsnappy-dev
         - libopencv-dev
         - libhdf5-serial-dev
-        - protobuf-compiler
         - libgflags-dev
         - libgoogle-glog-dev
         - liblmdb-dev
@@ -123,7 +122,7 @@
         remote_src: yes
       when: protobuf_check.rc == 1
 
-    - name: "Build and install protobuf-1.0"
+    - name: "Build and install protobuf"
       shell: |
         ./configure && make -j8 && \
         cp -a src/.libs/lib*.a* src/.libs/lib*.so* \
@@ -135,13 +134,19 @@
       failed_when: protobuf_build.rc > 0
       when: protobuf_check.rc == 1
 
+    - name: "Verify protoc installation"
+      command: /usr/bin/protoc --version
+      register: protoc_test
+      failed_when: '"3.2.0" not in protoc_test.stdout'
+      when: protobuf_check.rc == 1
+
     - name: "Copy protobuf dummy deb files"
       copy:
         dest: /tmp/ansible-proto-build/
         src: files/protobuf/
       when: protobuf_check.rc == 1
 
-    - name: "Install protobuf runtime deb files"
+    - name: "Install protobuf dummy deb files"
       apt: deb={{item}}
       with_items:
         - "/tmp/ansible-proto-build/libprotobuf12_3.2.0-0~dummy_amd64.deb"
@@ -165,13 +170,7 @@
       apt_repository:
         repo: "deb https://apt.repos.intel.com/mkl all main"
         filename: "intel-mkl"
-
-    - name: "Update apt-get cache"
-      apt: update_cache=yes cache_valid_time=3600
-      ignore_errors: yes
-
-    - name: "Upgrade apt-cache cache and distro"
-      apt: upgrade=dist cache_valid_time=3600
+        update_cache: yes
 
     - name: "Install intel MKL libraries"
       apt: name="intel-mkl-64bit-2017.3-056"
@@ -205,7 +204,7 @@
       when: cuda_check_deb.rc == 1
 
     - name: "Update apt-get cache"
-      apt: update_cache=yes cache_valid_time=3600
+      apt: update_cache=yes
       ignore_errors: yes
       when: cuda_check_deb.rc == 1
 
@@ -361,13 +360,13 @@
 
     - name: "Build and install caffe-1.0"
       shell: |
-        make clean
-        make all distribute -j12
+        make clean && \
+        make all distribute -j12 && \
         ls distribute/bin | \
           sed -n 's/\.bin$//p' | \
-          xargs -n1 -I{} ln -s {}.bin distribute/bin/{}
-        mkdir -p /opt/caffe
-        mv distribute/* /opt/caffe
+          xargs -n1 -I{} ln -s {}.bin distribute/bin/{} && \
+        mkdir -p /opt/caffe && \
+        mv distribute/* /opt/caffe && \
         echo "caffe build complete"
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
@@ -380,7 +379,7 @@
       file: path=/tmp/ansible-caffe-build state=absent
       when: caffe_check.rc == 1
 
-- name: "Set up common login environement variables"
+- name: "Set up common login environment variables"
   hosts: gpu
   become: true
   tasks:
