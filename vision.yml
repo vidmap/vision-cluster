@@ -85,7 +85,6 @@
         - libatlas-base-dev
         - libleveldb-dev
         - libsnappy-dev
-        - libopencv-dev
         - libhdf5-serial-dev
         - libgflags-dev
         - libgoogle-glog-dev
@@ -255,6 +254,148 @@
       pip: executable=pip3 name=numpy
     - name: "Set up scipy for python3"
       pip: executable=pip3 name=scipy
+
+- name: "Build opencv from source"
+  hosts: gpu
+  become: true
+  tasks:
+    - name: "Check that if usr local libopencv_core.so.3.1.0 exists"
+      stat: path=/usr/local/lib/libopencv_core.so.3.1.0
+      register: libopencv_file
+
+    - name: "Remove ubuntu opencv"
+      apt: name={{item}} state=absent
+      with_items:
+        - libopencv-dev
+        - libopencv-calib3d-dev
+        - libopencv-calib3d2.4
+        - libopencv-contrib-dev
+        - libopencv-contrib2.4
+        - libopencv-core-dev
+        - libopencv-core2.4
+        - libopencv-features2d-dev
+        - libopencv-features2d2.4
+        - libopencv-flann-dev
+        - libopencv-flann2.4
+        - libopencv-gpu-dev
+        - libopencv-gpu2.4
+        - libopencv-highgui-dev
+        - libopencv-highgui2.4
+        - libopencv-imgproc-dev
+        - libopencv-imgproc2.4
+        - libopencv-legacy-dev
+        - libopencv-legacy2.4
+        - libopencv-ml-dev
+        - libopencv-ml2.4
+        - libopencv-objdetect-dev
+        - libopencv-objdetect2.4
+        - libopencv-ocl-dev
+        - libopencv-ocl2.4
+        - libopencv-photo-dev
+        - libopencv-photo2.4
+        - libopencv-stitching-dev
+        - libopencv-stitching2.4
+        - libopencv-superres-dev
+        - libopencv-superres2.4
+        - libopencv-ts-dev
+        - libopencv-ts2.4
+        - libopencv-video-dev
+        - libopencv-video2.4
+        - libopencv-videostab-dev
+        - libopencv-videostab2.4
+        - libopencv2.4-java
+        - libopencv2.4-jni
+        - opencv-data
+      when: not libopencv_file.stat.exists
+
+    - name: "Install opencv prerequisite libraries"
+      apt: name={{item}}
+      with_items:
+        - build-essential
+        - cmake
+        - ffmpeg
+        - qtbase5-dev
+        - libgtkglext1-dev
+        - libvtk6-dev
+        - zlib1g-dev
+        - libjpeg-dev
+        - libwebp-dev
+        - libpng-dev
+        - libtiff5-dev
+        - libjasper-dev
+        - libopenexr-dev
+        - libgdal-dev
+        - libdc1394-22-dev
+        - libavcodec-dev
+        - libavformat-dev
+        - libswscale-dev
+        - libtheora-dev
+        - libvorbis-dev
+        - libxvidcore-dev
+        - libx264-dev
+        - libgstreamer1.0-dev
+        - libgstreamer-plugins-base1.0-dev
+        - libfaac-dev
+        - libmp3lame-dev
+        - yasm
+        - libopencore-amrnb-dev
+        - libopencore-amrwb-dev
+        - libv4l-dev
+        - libxine2-dev
+        - libtbb-dev
+        - libeigen3-dev
+        - python-tk
+        - python3-tk
+        - ant
+        - default-jdk
+        - doxygen
+        - checkinstall
+      when: not libopencv_file.stat.exists
+
+    - name: "Create temp build directory"
+      file: path=/tmp/ansible-opencv-build state=directory
+      when: not libopencv_file.stat.exists
+
+    - name: "Download opencv 3.1 sources"
+      git:
+        repo: https://github.com/daveselinger/opencv
+        version: 3.1.0-with-cuda8
+        depth: 1
+        dest: /tmp/ansible-opencv-build
+      when: not libopencv_file.stat.exists
+
+    - name: "Build and install opencv"
+      shell: |
+        mkdir build
+        cd build
+        cmake -D CMAKE_BUILD_TYPE=RELEASE \
+            -D FORCE_VTK=ON \
+            -D WITH_TBB=ON \
+            -D WITH_V4L=ON \
+            -D WITH_QT=ON \
+            -D WITH_OPENGL=ON \
+            -D WITH_CUBLAS=ON \
+            -D CUDA_NVCC_FLAGS="-D_FORCE_INLINES" \
+            -D WITH_GDAL=ON \
+            -D WITH_XINE=ON \
+            -D WITH_GSTREAMER=ON \
+            -D BUILD_NEW_PYTHON_SUPPORT=ON \
+            -D BUILD_TESTS=OFF \
+            -D BUILD_PERF_TESTS=OFF \
+            -D BUILD_EXAMPLES=OFF ..
+        make -j12
+        checkinstall --default --backup=no --deldoc=yes \
+          --install=yes --pkgname=libopencv-dev --pkgversion='3.1.0'
+      args:
+        chdir: /tmp/ansible-opencv-build
+      register: opencv_build
+      failed_when: opencv_build.rc > 0
+      when: not libopencv_file.stat.exists
+
+    - name: "Verify installation"
+      stat: path=/usr/local/lib/libopencv_core.so.3.1.0
+      register: libopencv_verify
+      failed_when: not libopencv_verify.stat.exists
 
 - name: "Shared Anaconda 3 distribution"
   hosts: gpu
