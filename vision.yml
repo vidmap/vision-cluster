@@ -102,12 +102,21 @@
   hosts: gpu
   become: yes
   tasks:
-    - name: "Check if protobuf is present"
+    - name: "Check if protobuf 3.2 is present"
       command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
         libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
       register: protobuf_check
       failed_when: protobuf_check.rc > 1
       changed_when: protobuf_check.rc == 1
+
+    # If the old protoc is not removed now, the old package will think it
+    # owns the new protoc and the new one will be deleted.
+    - name: "Remove old protobuf implementation"
+      apt: name={{item}} state=absent
+      with_items:
+        - libprotobuf-dev
+        - libprotoc-dev
+        - protobuf-compiler
 
     - name: "Create temp build directory"
       file: path=/tmp/ansible-proto-build state=directory
@@ -355,7 +364,7 @@
         - default-jdk
         - doxygen
         - checkinstall
-      when: not libopencv_file.stat.exists
+      # when: not libopencv_file.stat.exists
 
     - name: "Create temp build directory"
       file: path=/tmp/ansible-opencv-build state=directory
@@ -513,9 +522,10 @@
 
     - name: "Download caffe-1.0 sources"
       unarchive:
-        src: "https://github.com/BVLC/caffe/archive/1.0.tar.gz"
+        # src: "https://github.com/BVLC/caffe/archive/1.0.tar.gz"
+        # remote_src: yes
+        src: largefiles/caffe/1.0.tar.gz
         dest: /tmp/ansible-caffe-build
-        remote_src: yes
       when: caffe_check.rc == 1
 
     - name: "Copy our caffe Makefile.config"
