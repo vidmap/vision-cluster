@@ -1,3 +1,5 @@
+test -f /etc/profile.d/modules.sh && source /etc/profile.d/modules.sh
+
 export MKL_HOME=/opt/intel/mkl
 export PATH=${MKL_HOME}/bin:$PATH
 

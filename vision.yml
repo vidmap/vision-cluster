@@ -60,11 +60,12 @@
   hosts: gpu
   become: yes
   tasks:
-    - name: "Install various monitoring tools"
+    - name: "Install various admin tools"
       apt: name={{item}}
       with_items:
         - htop
         - iotop
+        - environment-modules
 
     - name: "Install glances"
       pip:
