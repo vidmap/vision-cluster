@@ -26,7 +26,8 @@ From that machine execute
 
 That script drops into interactive mode for the serial connection,
 so at the PXE boot menu, you need to select the 2nd menu option for remote
-serial installation, manually.  For any other choices, select the defaults.
+serial installation, manually.  If any other questions are presented,
+just select the defaults.
 
 Wiping will check that nobody is using the machine before wiping it, and
 it will save some kerberos information before erasing the machine.
