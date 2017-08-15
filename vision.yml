@@ -16,10 +16,14 @@
   hosts: gpu
   become: yes
   tasks:
-    - name: "Remove obsolete kalakris cmake ppa"
+    - name: "Remove obsolete ppas"
       apt_repository:
-        repo: "ppa:kalakris/cmake"
+        repo: "{{item}}"
         state: absent
+        update_cache: no
+      with_items:
+        - "ppa:kalakris/cmake"
+        - "ppa:mc3man/trusty-media"
 
     - name: "Add aptitude needed by ansible"
       apt: name=aptitude
