@@ -5,7 +5,7 @@ This repo includes scripts needed to wipe, reimage, and update the
 torralba/billf/oliva vision group visiongpu cluster machines remotely
 without physical access.  The scripts are a work-in-progress.
 
-++ Wiping machines
+## Wiping machines
 
 Wiping machines has been intermittently flaky and once in a while
 requires assistance from TIG.  However, the goal of the script below
@@ -32,7 +32,7 @@ Wiping will check that nobody is using the machine before wiping it, and
 it will save some kerberos information before erasing the machine.
 Sometimes the wipe will fail and TIG help may still be required.
 
-++ Reinstalling machines
+## Reinstalling machines
 
 To reinstall vision software on a machine after it has been wiped (or to
 just update software on the machine without wiping), run this from any other
@@ -68,7 +68,7 @@ that is installed locally includes:
  * Machine-specific profile.local sets up the PATH to include local `conda`,
    `caffe`, etc.
 
-++ Updating the cluster
+## Updating the cluster
 
 The `vision.yml` playbook has all the details for how the vision
 software image is installed.  To update all the machines in the cluster
@@ -83,7 +83,7 @@ non-open-source files needed (CUDNN) cannot be downloaded directly from the
 vendor and are provided over NFS, so the playbook needs to be run on a
 vision machine.
 
-++ TODO
+## TODO
 
 Needed: a similar ansible script (probably a subset) for non-gpu vision
 cluster machines.
