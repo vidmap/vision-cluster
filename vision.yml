@@ -39,12 +39,23 @@
         - python-pip
         - python-dev
         - libffi-dev
+        - checkinstall
 
     - name: "Update python ssl support"
       pip: name="cffi urllib3 pyopenssl ndg-httpsclient pyasn1"
 
     - name: "Update ca-certificates for https support"
       apt: name=ca-certificates
+
+- name: "Remove gcc 4.9 with old C++ ABI to match anaconda"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Install gcc-4.9."
+      apt: name={{item}} state=absent
+      with_items:
+        - gcc-4.9
+        - g++-4.9
 
 - name: "Install ansible"
   hosts: gpu
@@ -107,6 +118,20 @@
   hosts: gpu
   become: yes
   tasks:
+    - name: "Detect previous build with gcc-4.9 ABI"
+      command: nm -D /usr/local/lib/libprotobuf.so
+      register: proto_abi_test
+      changed_when: "'7__cxx11' not in proto_abi_test.stdout"
+      failed_when: False
+
+    - name: "Remove previous deb package"
+      apt: name={{item}} state=absent
+      with_items:
+        - libprotobuf-dev
+        - libprotoc-dev
+        - protobuf-compiler
+      when: "'7__cxx11' not in proto_abi_test.stdout"
+
     - name: "Check if protobuf 3.2 is present"
       command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
         libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
@@ -122,6 +147,7 @@
         - libprotobuf-dev
         - libprotoc-dev
         - protobuf-compiler
+      when: protobuf_check.rc == 1
 
     - name: "Create temp build directory"
       file: path=/tmp/ansible-proto-build state=directory
@@ -136,10 +162,10 @@
 
     - name: "Build and install protobuf"
       shell: |
-        ./configure && make -j8 && \
-        cp -a src/.libs/lib*.a* src/.libs/lib*.so* \
-            /usr/lib/x86_64-linux-gnu/ && \
-        cp src/.libs/protoc /usr/bin/
+        ./configure && make clean && make -j8 && \
+        checkinstall --default --backup=no --deldoc=yes \
+          --install=yes --pkgname=libprotobuf-dev --pkgversion='3.2.0' && \
+        ldconfig
       args:
         chdir: /tmp/ansible-proto-build/protobuf-3.2.0
       register: protobuf_build
@@ -148,7 +174,7 @@
       notify: run ldconfig
 
     - name: "Verify protoc installation"
-      command: /usr/bin/protoc --version
+      command: /usr/local/bin/protoc --version
       register: protoc_test
       failed_when: '"3.2.0" not in protoc_test.stdout'
       when: protobuf_check.rc == 1
@@ -165,7 +191,7 @@
         - "/tmp/ansible-proto-build/libprotobuf12_3.2.0-0~dummy_amd64.deb"
         - "/tmp/ansible-proto-build/libprotobuf-lite12_3.2.0-0~dummy_amd64.deb"
         - "/tmp/ansible-proto-build/libprotoc12_3.2.0-0~dummy_amd64.deb"
-        - "/tmp/ansible-proto-build/libprotobuf-dev_3.2.0-0~dummy_amd64.deb"
+        # - "/tmp/ansible-proto-build/libprotobuf-dev_3.2.0-0~dummy_amd64.deb"
         - "/tmp/ansible-proto-build/libprotoc-dev_3.2.0-0~dummy_amd64.deb"
         - "/tmp/ansible-proto-build/protobuf-compiler_3.2.0-0~dummy_amd64.deb"
       when: protobuf_check.rc == 1
@@ -257,6 +283,30 @@
         - "/tmp/ansible-cudnn/libcudnn7-dev_7.0.1.13-1+cuda8.0_amd64.deb"
       when: cudnn_check_deb.rc == 1
 
+- name: "python packages"
+  hosts: gpu
+  become: yes
+  tasks:
+    - name: "Install pycaffe prerequisites"
+      pip: name={{item}}
+      with_items:
+        - numpy
+        - scipy
+        - scikit-image
+        - matplotlib
+        - ipython
+        - h5py
+        - leveldb
+        - networkx
+        - nose
+        - pandas
+        - python-dateutil
+        - protobuf
+        - python-gflags
+        - pyyaml
+        - Pillow
+        - six
+
 - name: "python3 packages"
   hosts: gpu
   become: yes
@@ -269,15 +319,42 @@
         - python3-cffi
     - name: "Install wheel"
       pip: executable=pip3 name=wheel
-    - name: "Set up numpy for python3"
-      pip: executable=pip3 name=numpy
-    - name: "Set up scipy for python3"
-      pip: executable=pip3 name=scipy
+    - name: "Install pycaffe prerequisites"
+      pip: executable=pip3 name={{item}}
+      with_items:
+        - numpy
+        - scipy
+        - scikit-image
+        - matplotlib
+        - ipython
+        - h5py
+        - leveldb
+        - networkx
+        - nose
+        - pandas
+        - python-dateutil
+        - protobuf
+        - python-gflags
+        - pyyaml
+        - Pillow
+        - six
 
 - name: "Build opencv from source"
   hosts: gpu
   become: true
   tasks:
+    - name: "Detect previous build with gcc-5 ABI"
+      command: nm -D /usr/local/lib/libopencv_core.so
+      register: opencv_abi_test
+      changed_when: "'7__cxx11' not in opencv_abi_test.stdout"
+      failed_when: False
+
+    - name: "Remove previous deb package"
+      apt: name={{item}} state=absent
+      with_items:
+        - libopencv-dev
+      when: "'7__cxx11' not in opencv_abi_test.stdout"
+
     - name: "Check that if usr local libopencv_core.so.3.1.0 exists"
       stat: path=/usr/local/lib/libopencv_core.so.3.1.0
       register: libopencv_file
@@ -368,7 +445,6 @@
         - ant
         - default-jdk
         - doxygen
-        - checkinstall
       # when: not libopencv_file.stat.exists
 
     - name: "Create temp build directory"
@@ -387,7 +463,8 @@
       shell: |
         mkdir build
         cd build
-        cmake -D CMAKE_BUILD_TYPE=RELEASE \
+        cmake \
+            -D CMAKE_BUILD_TYPE=RELEASE \
             -D FORCE_VTK=ON \
             -D WITH_TBB=ON \
             -D WITH_V4L=ON \
@@ -402,6 +479,7 @@
             -D BUILD_TESTS=OFF \
             -D BUILD_PERF_TESTS=OFF \
             -D BUILD_EXAMPLES=OFF ..
+        make clean
         make -j12
         checkinstall --default --backup=no --deldoc=yes \
           --install=yes --pkgname=libopencv-dev --pkgversion='3.1.0'
@@ -494,13 +572,6 @@
         version: 2.0.5
         executable: /opt/anaconda/bin/conda
 
-    - name: "Install pygraphviz"
-      conda:
-        name: pygraphviz
-        version: 1.3.1
-        channels: bioconda
-        executable: /opt/anaconda/bin/conda
-
     - name: "Install opencv3"
       conda:
         name: opencv3
@@ -508,10 +579,41 @@
         channels: menpo
         executable: /opt/anaconda/bin/conda
 
+    - name: "Install pygraphviz"
+      conda:
+        name: pygraphviz
+        version: 1.3.1
+        channels: bioconda
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install plotly"
+      conda:
+        name: plotly
+        version: 2.0.12
+        channels: conda-forge
+        executable: /opt/anaconda/bin/conda
+
+    - name: "Install igraph"
+      conda:
+        name: igraph
+        version: 0.7.1
+        channels: conda-forge
+        executable: /opt/anaconda/bin/conda
+
 - name: "Build and install caffe-1.0 from source"
   hosts: gpu
   become: true
   tasks:
+    - name: "Detect previous build with gcc-4.9 ABI"
+      command: nm -D /opt/caffe/lib/libcaffe.so
+      register: caffe_abi_test
+      changed_when: "'7__cxx11' not in caffe_abi_test.stdout"
+      failed_when: False
+
+    - name: "Remove previous version of caffe"
+      file: name=/opt/caffe state=absent
+      when: "'7__cxx11' not in caffe_abi_test.stdout"
+
     - name: "Check if caffe is present"
       shell: |
         test -L /opt/caffe/bin/caffe && \
@@ -546,12 +648,17 @@
     - name: "Build and install caffe-1.0"
       shell: |
         make clean && \
-        make all distribute -j12 && \
+        make proto && \
+        make all -j12 && \
+        make distribute && \
         ls distribute/bin | \
           sed -n 's/\.bin$//p' | \
           xargs -n1 -I{} ln -s {}.bin distribute/bin/{} && \
         mkdir -p /opt/caffe && \
         mv distribute/* /opt/caffe && \
+        ln -s /opt/caffe/python/caffe -t /usr/local/lib/python2.7/dist-packages && \
+        ln -s /opt/caffe/lib/libcaffe.* -t /usr/local/lib/ && \
+        ldconfig && \
         echo "caffe build complete"
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
