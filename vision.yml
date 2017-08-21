@@ -47,15 +47,15 @@
     - name: "Update ca-certificates for https support"
       apt: name=ca-certificates
 
-- name: "Remove gcc 4.9 with old C++ ABI to match anaconda"
+- name: "Update gcc"
   hosts: gpu
   become: yes
   tasks:
-    - name: "Install gcc-4.9."
-      apt: name={{item}} state=absent
+    - name: "Ensure gcc is updated"
+      apt: name={{item}} state=present
       with_items:
-        - gcc-4.9
-        - g++-4.9
+        - gcc
+        - g++
 
 - name: "Install ansible"
   hosts: gpu
@@ -69,7 +69,6 @@
 
     - name: "Install ansible itself"
       apt: name=ansible
-
 
 - name: "Install useful packages"
   hosts: gpu
@@ -118,20 +117,6 @@
   hosts: gpu
   become: yes
   tasks:
-    - name: "Detect previous build with gcc-4.9 ABI"
-      command: nm -D /usr/local/lib/libprotobuf.so
-      register: proto_abi_test
-      changed_when: "'7__cxx11' not in proto_abi_test.stdout"
-      failed_when: False
-
-    - name: "Remove previous deb package"
-      apt: name={{item}} state=absent
-      with_items:
-        - libprotobuf-dev
-        - libprotoc-dev
-        - protobuf-compiler
-      when: "'7__cxx11' not in proto_abi_test.stdout"
-
     - name: "Check if protobuf 3.2 is present"
       command: dpkg-query -W libprotobuf12 libprotobuf-lite12 \
         libprotoc12 libprotobuf-dev libprotoc-dev protobuf-compiler \
@@ -149,6 +134,10 @@
         - protobuf-compiler
       when: protobuf_check.rc == 1
 
+    - name: "Eraes temp build directory"
+      file: path=/tmp/ansible-proto-build state=absent
+      when: protobuf_check.rc == 1
+
     - name: "Create temp build directory"
       file: path=/tmp/ansible-proto-build state=directory
       when: protobuf_check.rc == 1
@@ -164,8 +153,7 @@
       shell: |
         ./configure && make clean && make -j8 && \
         checkinstall --default --backup=no --deldoc=yes \
-          --install=yes --pkgname=libprotobuf-dev --pkgversion='3.2.0' && \
-        ldconfig
+          --install=yes --pkgname=libprotobuf-dev --pkgversion='3.2.0' \
       args:
         chdir: /tmp/ansible-proto-build/protobuf-3.2.0
       register: protobuf_build
@@ -343,18 +331,6 @@
   hosts: gpu
   become: true
   tasks:
-    - name: "Detect previous build with gcc-5 ABI"
-      command: nm -D /usr/local/lib/libopencv_core.so
-      register: opencv_abi_test
-      changed_when: "'7__cxx11' not in opencv_abi_test.stdout"
-      failed_when: False
-
-    - name: "Remove previous deb package"
-      apt: name={{item}} state=absent
-      with_items:
-        - libopencv-dev
-      when: "'7__cxx11' not in opencv_abi_test.stdout"
-
     - name: "Check that if usr local libopencv_core.so.3.1.0 exists"
       stat: path=/usr/local/lib/libopencv_core.so.3.1.0
       register: libopencv_file
@@ -446,6 +422,10 @@
         - default-jdk
         - doxygen
       # when: not libopencv_file.stat.exists
+
+    - name: "Erase temp build directory"
+      file: path=/tmp/ansible-opencv-build state=absent
+      when: not libopencv_file.stat.exists
 
     - name: "Create temp build directory"
       file: path=/tmp/ansible-opencv-build state=directory
@@ -604,16 +584,6 @@
   hosts: gpu
   become: true
   tasks:
-    - name: "Detect previous build with gcc-4.9 ABI"
-      command: nm -D /opt/caffe/lib/libcaffe.so
-      register: caffe_abi_test
-      changed_when: "'7__cxx11' not in caffe_abi_test.stdout"
-      failed_when: False
-
-    - name: "Remove previous version of caffe"
-      file: name=/opt/caffe state=absent
-      when: "'7__cxx11' not in caffe_abi_test.stdout"
-
     - name: "Check if caffe is present"
       shell: |
         test -L /opt/caffe/bin/caffe && \
@@ -658,13 +628,13 @@
         mv distribute/* /opt/caffe && \
         ln -s /opt/caffe/python/caffe -t /usr/local/lib/python2.7/dist-packages && \
         ln -s /opt/caffe/lib/libcaffe.* -t /usr/local/lib/ && \
-        ldconfig && \
         echo "caffe build complete"
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
       register: caffe_build
       failed_when: caffe_build.rc > 0
       changed_when: '"caffe build complete" in caffe_build.stdout'
+      notify: run ldconfig
       when: caffe_check.rc == 1
 
     - name: "Verify that caffe is present"
@@ -675,6 +645,10 @@
       register: caffe_verify
       failed_when: caffe_verify.rc > 1
       changed_when: caffe_verify.rc == 1
+
+  handlers:
+    - name: run ldconfig
+      command: ldconfig
 
 - name: "Set up common login environment variables"
   hosts: gpu
