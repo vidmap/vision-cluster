@@ -4,7 +4,7 @@ if [[ ! "$1" =~ [0-9]+ ]]
 then
   echo "This script initializes a visiongpu machine that was just wiped."
   echo "Prerequisites:"
-  echo "  (1) a krb5.keytab file for the machine (saved by wipevisiongpu)"
+  echo "  (1) a krb5.keytab file for the machine (if it was wiped)"
   echo "  (2) a local ansible installation, ansible 2.3 or better"
   echo
   echo "Usage: $0 server-number"
@@ -30,7 +30,7 @@ ssh-keyscan -H ${SERVERNAME} >> ${HOME}/.ssh/known_hosts 2> /dev/null
 
 # STEP 2: restore the krb5.keytab if we have it
 KEYTABDIR=${HOME}/.keytabs/${SERVERNAME}
-if ! ssh -x visiongpu15 ls /etc/krb5.keytab > /dev/null
+if ! ssh -x ${SERVERNAME} ls /etc/krb5.keytab > /dev/null
 then
     if [ ! -f ${KEYTABDIR}/krb5.keytab ]
     then
@@ -38,7 +38,7 @@ then
         echo "May not be able to ssh."
     else
         echo "Kerberos keytab must be restored; manual password needed"
-        ssh -o GSSAPIKeyExchange=no -t -x $SERVERNAME \
+        ssh -o GSSAPIKeyExchange=no -t -x ${SERVERNAME} \
             sudo cp ${KEYTABDIR}/krb5.keytab /etc/krb5.keytab
         if [ $? -eq 0 ]
         then
@@ -47,7 +47,27 @@ then
     fi
 fi
 
-# STEP 3: run ansible
+# STEP 3: check if ansible key is present
+if [ ! -f ${HOME}/.ansible/key ]
+then
+    echo "Creating ansible key in ${HOME}/.ansible/key"
+    mkdir -p "${HOME}/.ansible"
+    ssh-keygen -t rsa -N '' -f  "${HOME}/.ansible/key"
+    # If we are running this from one of the hosts, then we can add
+    # ourselves to authorized_keys
+    if grep -q $(hostname) hosts
+    then
+        echo "Adding ansible key to ${HOME}/.ssh/authorized_keys"
+        mkdir -p "${HOME}/.ssh"
+        cat "${HOME}/.ansible/key.pub" >> "${HOME}/.ssh/authorized_keys"
+        chmod 600 "${HOME}/.ssh/authorized_keys"
+    else
+        echo "Add the public key ${HOME}/.ansible/key.pub on this machine"
+        echo "to your .ssh/authorized_keys in the cluster."
+    fi
+fi
+
+# STEP 4: run ansible
 if [ -z $(grep ${SHORTSERVER} hosts) ]
 then
     echo "${SHORTSERVER} is not listed in hosts inventory."
