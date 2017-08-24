@@ -2,10 +2,11 @@
 
 if [[ ! "$1" =~ [0-9]+ ]]
 then
-  echo "This script power cycles a visiongpu machine."
+  echo "This script power cycles a visiongpu machine if it is unreachable."
+  echo "It will not power cycle a machine that responds to pings."
+  echo
   echo "Prerequisites:"
   echo "  (1) the ipmi vision password for serial access"
-  echo "After running this script, you need to run installvisiongpu."
   echo
   echo "Usage: $0 server-number"
   exit 1
@@ -31,33 +32,13 @@ then
   exit 1
 fi
 
-# STEP 1: make sure nobody is using the machine.
-
-GPUSTATUS=$(ssh -x $SERVERNAME nvidia-smi)
-if [[ ! "${GPUSTATUS}" =~ "No running processes found" ]]
+# STEP 1: Check that the machine is not reachable
+if ping -c1 ${SERVERNAME} > /dev/null
 then
-  echo "${GPUSTATUS}"
-  echo "${SERVERNAME} is busy. Not wiping."
+  echo "${SERVERNAME} is reachable.  Not power-cycling."
   exit 1
 fi
 
-LOGINSTATUS=$(ssh -x $SERVERNAME who)
-if [ ! -z "${LOGINSTATUS}" ]
-then
-  echo "${LOGINSTATUS}"
-  echo "${SERVERNAME} has users logged in. Not wiping."
-  exit 1
-fi
-
-PROCSTATUS=$(ssh -x $SERVERNAME ps -ef | egrep 'jupyter|matlab')
-if [ ! -z "${PROCSTATUS}" ]
-then
-  echo "${PROCSTATUS}"
-  echo "${SERVERNAME} has users running interactive apps. Not wiping."
-  exit 1
-fi
-
-# STEP 3: power cycle the amchine
-# Request pxe boot mode
-ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
+# STEP 2: power cycle the amchine
+ssh -x holyoke-console ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
     -H ${BMCNAME} chassis power cycle
