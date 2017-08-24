@@ -153,13 +153,16 @@
       shell: |
         ./configure && make clean && make -j8 && \
         checkinstall --default --backup=no --deldoc=yes \
-          --install=yes --pkgname=libprotobuf-dev --pkgversion='3.2.0' \
+          --install=yes --pkgname=libprotobuf-dev --pkgversion='3.2.0'
       args:
         chdir: /tmp/ansible-proto-build/protobuf-3.2.0
       register: protobuf_build
       failed_when: protobuf_build.rc > 0
       when: protobuf_check.rc == 1
-      notify: run ldconfig
+
+    - name: "Run ldconfig"
+      command: ldconfig
+      when: protobuf_check.rc == 1
 
     - name: "Verify protoc installation"
       command: /usr/local/bin/protoc --version
@@ -183,10 +186,6 @@
         - "/tmp/ansible-proto-build/libprotoc-dev_3.2.0-0~dummy_amd64.deb"
         - "/tmp/ansible-proto-build/protobuf-compiler_3.2.0-0~dummy_amd64.deb"
       when: protobuf_check.rc == 1
-
-  handlers:
-    - name: run ldconfig
-      command: ldconfig
 
 - name: "Intel MKL library"
   hosts: gpu
