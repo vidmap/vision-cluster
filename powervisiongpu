@@ -33,7 +33,10 @@ then
 fi
 
 # STEP 1: Check that the machine is not reachable
-if ping -c1 ${SERVERNAME} > /dev/null
+if [ ! -z ${FORCE} ]
+then
+  echo "Forcing reboot without checking ping"
+elif ping -c1 ${SERVERNAME} > /dev/null
 then
   echo "${SERVERNAME} is reachable.  Not power-cycling."
   exit 1

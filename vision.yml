@@ -80,6 +80,7 @@
         - htop
         - iotop
         - environment-modules
+        - parallel
 
     - name: "Install glances"
       pip:
@@ -274,11 +275,13 @@
   hosts: gpu
   become: yes
   tasks:
+    - name: "Install recent numpy"
+      pip: name=numpy version=1.13.1
+    - name: "Install recent scipy"
+      pip: name=scipy version=0.19.1
     - name: "Install pycaffe prerequisites"
       pip: name={{item}}
       with_items:
-        - numpy
-        - scipy
         - scikit-image
         - matplotlib
         - ipython
@@ -306,11 +309,13 @@
         - python3-cffi
     - name: "Install wheel"
       pip: executable=pip3 name=wheel
+    - name: "Install recent numpy"
+      pip: executable=pip3 name=numpy version=1.13.1
+    - name: "Install recent scipy"
+      pip: executable=pip3 name=scipy version=0.19.1
     - name: "Install pycaffe prerequisites"
       pip: executable=pip3 name={{item}}
       with_items:
-        - numpy
-        - scipy
         - scikit-image
         - matplotlib
         - ipython
@@ -616,17 +621,17 @@
 
     - name: "Build and install caffe-1.0"
       shell: |
-        make clean && \
-        make proto && \
-        make all -j12 && \
-        make distribute && \
+        make clean
+        make proto
+        make all -j12
+        make distribute
         ls distribute/bin | \
           sed -n 's/\.bin$//p' | \
-          xargs -n1 -I{} ln -s {}.bin distribute/bin/{} && \
-        mkdir -p /opt/caffe && \
-        mv distribute/* /opt/caffe && \
-        ln -s /opt/caffe/python/caffe -t /usr/local/lib/python2.7/dist-packages && \
-        ln -s /opt/caffe/lib/libcaffe.* -t /usr/local/lib/ && \
+          xargs -n1 -I{} ln -s {}.bin distribute/bin/{}
+        mkdir -p /opt/caffe
+        mv distribute/* /opt/caffe
+        ln -s /opt/caffe/python/caffe -t /usr/local/lib/python2.7/dist-packages
+        ln -s /opt/caffe/lib/libcaffe.* -t /usr/local/lib/
         echo "caffe build complete"
       args:
         chdir: /tmp/ansible-caffe-build/caffe-1.0
