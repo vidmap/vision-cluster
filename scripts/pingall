@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+parallel -k \
+  'ping -c1 {}.csail.mit.edu > /dev/null \
+     && echo {} ping \
+     || echo {} unreachable' \
+  ::: \
+  $(printf "visiongpu%02d " $(seq 2 20)) \
+  $(printf "vision%02d " $(seq 1 38)) \
+  | column

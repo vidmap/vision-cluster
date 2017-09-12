@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+KRBUSER="${USER}@CSAIL.MIT.EDU"
+KEYTABFILE="${HOME}/.keytabs/$KRBUSER"
+mkdir -p $(dirname ${KEYTABFILE})
+rm -rf ${KEYTABFILE}
+
+read -s -p "Password:" KRBPASS
+
+
+for ENCTYPE in \
+    arcfour-hmac \
+    des3-cbc-sha1 \
+    aes128-cts-hmac-sha1-96 \
+    aes256-cts-hmac-sha1-96 \
+    camellia128-cts-cmac \
+    camellia256-cts-cmac
+do
+    printf "%b" "addent -password -p ${KRBUSER} -k 1 -e ${ENCTYPE}\n${KRBPASS}\nwrite_kt ${KEYTABFILE}" | ktutil > /dev/null
+
+done
+klist -kte "${KEYTABFILE}"

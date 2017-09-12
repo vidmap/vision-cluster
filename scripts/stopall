@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+parallel -k \
+  "ssh -x {} -- screen -S worker -X at 0 stuff '^C^M'" ::: \
+  $(printf "vision%02d " $(seq 20 38))

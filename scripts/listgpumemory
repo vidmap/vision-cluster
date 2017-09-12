@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Start from parent directory of script
+cd "$(dirname "$(dirname "$(readlink -f "$0")")")"
+
+if [ -t 1 ]
+then
+    FORMAT=column
+else
+    FORMAT=cat
+fi
+
+for MACHINE in $(tail -n+2 hosts)
+do
+    IFS=$', '
+    INDEX=0
+    ssh -x ${MACHINE} \
+        nvidia-smi --query-gpu=memory.free,memory.total,utilization.gpu \
+                   --format=csv,nounits,noheader | \
+    while read MEMFREE MEMTOTAL UTILIZATION
+    do
+        echo $MACHINE $INDEX $MEMFREE $MEMTOTAL $UTILIZATION
+        INDEX=$((INDEX + 1))
+    done &
+done | sort | $FORMAT

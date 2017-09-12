@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+COMMAND=${@:-\^C}
+
+parallel -k \
+  "ssh -x {} -- screen -S worker -X at 0 stuff \\\"${COMMAND}^M\\\"" ::: \
+  $(printf "vision%02d " $(seq 8 38)) $(printf "visiongpu%02d " $(seq 2 20))
