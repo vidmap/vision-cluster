@@ -81,6 +81,8 @@
         - iotop
         - environment-modules
         - parallel
+        - lshw
+        - gdisk
 
     - name: "Install glances"
       pip:
