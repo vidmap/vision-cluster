@@ -2,7 +2,7 @@
 
 if [[ ! "$1" =~ [0-9]+ ]]
 then
-  echo "This script initializes a visiongpu machine that was just wiped."
+  echo "This script sets up vision software on a vision cluster gpu machine"
   echo "Prerequisites:"
   echo "  (1) a krb5.keytab file for the machine (if it was wiped)"
   echo "  (2) a local ansible installation, ansible 2.3 or better"
@@ -17,7 +17,7 @@ SERVERNAME=${SHORTSERVER}.csail.mit.edu
 SERVERIP=$(host ${SERVERNAME} | sed 's/.* //')
 
 # STEP 1: fix up known_hosts
-echo "Refreshing local known_hosts."
+echo "Refreshing local known_hosts keys for ${SHORTSERVER}."
 ssh-keygen -q -R ${SHORTSERVER} > /dev/null 2>&1
 ssh-keygen -q -R ${SERVERNAME} > /dev/null 2>&1
 ssh-keygen -q -R ${SERVERIP} > /dev/null 2>&1
@@ -67,7 +67,22 @@ then
     fi
 fi
 
-# STEP 4: run ansible
+# STEP 4: create largefiles link (if on clusters)
+if [ ! -e largefiles ]
+then
+    if [ -e /data/vision/torralba/small-projects/vision-cluster/largefiles ]
+    then
+        echo "Making largefiles link."
+        ln -s /data/vision/torralba/small-projects/vision-cluster/largefiles \
+            largefiles
+    else
+        echo "Missing largefiles directory.  Copy from cluster at"
+        echo "/data/vision/torralba/small-projects/vision-cluster/largefiles"
+        exit 0
+    fi
+fi
+
+# STEP 5: run ansible
 if [ -z $(grep ${SHORTSERVER} hosts) ]
 then
     echo "${SHORTSERVER} is not listed in hosts inventory."
