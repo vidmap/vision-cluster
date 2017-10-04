@@ -34,12 +34,6 @@ that is installed locally includes:
  * Google protobuf 3 (built from source)
  * System python 2 and python 3 have numpy and scipy installed.
  * A shared root Anaconda install is also present (`/opt/anaconda`)
- * The root anaconda is preloaded with compatible versions of:
-    - pytorch (0.2.0)
-    - tensorflow (1.2.1)
-    - theano (0.9.0)
-    - keras (2.0.5)
-    - opencv (3.1.0)
  * Also caffe 1.0 (built from source, with python support linked
    to the system python 2.7) (`/opt/caffe`)
  * Monitoring tools `htop` and `glances` (with gpu support) are also installed.
