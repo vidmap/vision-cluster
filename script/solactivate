@@ -1,0 +1,37 @@
+#!/bin/bash
+
+if [[ ! "$1" =~ [0-9]+ ]]
+then
+  echo "This connects to a visiongpu machine over its serial line."
+  echo
+  echo "Prerequisites:"
+  echo "  (1) the ipmi vision password for serial access"
+  echo
+  echo "Usage: $0 server-number"
+  exit 1
+fi
+
+SERVERNUM=$(printf '%02d' $1)
+SERVERNAME=visiongpu${SERVERNUM}.csail.mit.edu
+BMCNAME=bmc-visiongpu${SERVERNUM}
+IPMIPASSFILE=${HOME}/.ipmitool/visionpw
+
+# STEP 0: prerequisites
+if [ ! -f "${IPMIPASSFILE}" ]
+then
+  echo "${IPMIPASSFILE} should contain the vision ipmi password."
+  echo "Get it from somebody who has it. Not wiping."
+  exit 1
+fi
+
+if [ $(stat -c %A "${IPMIPASSFILE}") != '-r--------' ]
+then
+  echo "${IPMIPASSFILE} should have 400 permissions."
+  echo "Run chmod 400 ${IPMIPASSFILE}."
+  exit 1
+fi
+
+# STEP 1: connect via sol activate
+echo "Escape key set to !.  To diconnect from the sesion press: [Enter]!."
+ssh -t holyoke-console ipmitool -I lanplus -U vision -f ${IPMIPASSFILE} \
+    -e '!' -H ${BMCNAME} sol activate
