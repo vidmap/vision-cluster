@@ -587,3 +587,9 @@
         dest: /etc/profile.local
         src: files/profile.local
 
+- name: "Setup docker"
+  hosts: docker
+  become: yes
+  tasks:
+    - name: "Installs docker"
+      apt: name=docker install_recommends=yes
