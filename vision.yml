@@ -586,10 +586,16 @@
       copy:
         dest: /etc/profile.local
         src: files/profile.local
-
+      
 - name: "Setup docker"
   hosts: docker
   become: yes
   tasks:
-    - name: "Installs docker"
-      apt: name=docker install_recommends=yes
+    - name: "Install docker"
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+        apt-get update
+        apt-cache policy docker-ce
+        apt-get install -y docker-ce
+        echo "Docker installation complete"
